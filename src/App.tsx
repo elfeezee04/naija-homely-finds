@@ -14,6 +14,7 @@ import Messages from "./pages/Messages";
 import Auth from "./pages/Auth";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -66,6 +67,7 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
               
               {/* Admin routes */}
               <Route path="/admin" element={
