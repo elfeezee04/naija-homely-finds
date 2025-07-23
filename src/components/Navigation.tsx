@@ -8,14 +8,38 @@ import {
   MessageSquare, 
   User, 
   Menu, 
-  X 
+  X,
+  Shield,
+  LogOut
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const { user, profile, signOut, isAdmin } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
+
+  const navItems = [
+    { name: 'Home', href: '/', icon: Home },
+    { name: 'Properties', href: '/properties', icon: Search },
+    ...(user ? [{ name: 'List Property', href: '/post-property', icon: PlusCircle }] : []),
+    ...(user ? [{ name: 'Messages', href: '/messages', icon: MessageSquare }] : []),
+    ...(isAdmin ? [{ name: 'Admin', href: '/admin', icon: Shield }] : []),
+  ];
+
+  const handleSignOut = async () => {
+    await signOut();
+    setIsMenuOpen(false);
+  };
 
   return (
     <nav className="bg-white shadow-md border-b sticky top-0 z-50">
@@ -31,63 +55,68 @@ const Navigation = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link
-              to="/"
-              className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                isActive('/') 
-                  ? 'text-primary bg-primary/10' 
-                  : 'text-foreground hover:text-primary'
-              }`}
-            >
-              <Home className="h-4 w-4" />
-              <span>Home</span>
-            </Link>
-            
-            <Link
-              to="/properties"
-              className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                isActive('/properties') 
-                  ? 'text-primary bg-primary/10' 
-                  : 'text-foreground hover:text-primary'
-              }`}
-            >
-              <Search className="h-4 w-4" />
-              <span>Properties</span>
-            </Link>
-            
-            <Link
-              to="/post-property"
-              className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                isActive('/post-property') 
-                  ? 'text-primary bg-primary/10' 
-                  : 'text-foreground hover:text-primary'
-              }`}
-            >
-              <PlusCircle className="h-4 w-4" />
-              <span>List Property</span>
-            </Link>
-            
-            <Link
-              to="/messages"
-              className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                isActive('/messages') 
-                  ? 'text-primary bg-primary/10' 
-                  : 'text-foreground hover:text-primary'
-              }`}
-            >
-              <MessageSquare className="h-4 w-4" />
-              <span>Messages</span>
-            </Link>
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive(item.href) 
+                      ? 'text-primary bg-primary/10' 
+                      : 'text-foreground hover:text-primary'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
           </div>
 
           {/* Auth Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/login">Login</Link>
-            </Button>
-            <Button variant="default" size="sm" asChild>
-              <Link to="/register">Sign Up</Link>
-            </Button>
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+                    <User className="h-4 w-4" />
+                    <span>{profile?.full_name || user.email}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem>
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin">
+                          <Shield className="h-4 w-4 mr-2" />
+                          Admin Dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/auth">Login</Link>
+                </Button>
+                <Button variant="default" size="sm" asChild>
+                  <Link to="/auth">Sign Up</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -106,65 +135,50 @@ const Navigation = () => {
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t">
             <div className="flex flex-col space-y-2">
-              <Link
-                to="/"
-                className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium ${
-                  isActive('/') 
-                    ? 'text-primary bg-primary/10' 
-                    : 'text-foreground hover:text-primary'
-                }`}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <Home className="h-4 w-4" />
-                <span>Home</span>
-              </Link>
-              
-              <Link
-                to="/properties"
-                className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium ${
-                  isActive('/properties') 
-                    ? 'text-primary bg-primary/10' 
-                    : 'text-foreground hover:text-primary'
-                }`}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <Search className="h-4 w-4" />
-                <span>Properties</span>
-              </Link>
-              
-              <Link
-                to="/post-property"
-                className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium ${
-                  isActive('/post-property') 
-                    ? 'text-primary bg-primary/10' 
-                    : 'text-foreground hover:text-primary'
-                }`}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <PlusCircle className="h-4 w-4" />
-                <span>List Property</span>
-              </Link>
-              
-              <Link
-                to="/messages"
-                className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium ${
-                  isActive('/messages') 
-                    ? 'text-primary bg-primary/10' 
-                    : 'text-foreground hover:text-primary'
-                }`}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <MessageSquare className="h-4 w-4" />
-                <span>Messages</span>
-              </Link>
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium ${
+                      isActive(item.href) 
+                        ? 'text-primary bg-primary/10' 
+                        : 'text-foreground hover:text-primary'
+                    }`}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{item.name}</span>
+                  </Link>
+                );
+              })}
               
               <div className="pt-4 border-t space-y-2">
-                <Button variant="outline" size="sm" className="w-full" asChild>
-                  <Link to="/login" onClick={() => setIsMenuOpen(false)}>Login</Link>
-                </Button>
-                <Button variant="default" size="sm" className="w-full" asChild>
-                  <Link to="/register" onClick={() => setIsMenuOpen(false)}>Sign Up</Link>
-                </Button>
+                {user ? (
+                  <>
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      Welcome, {profile?.full_name || user.email}
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      className="w-full justify-start"
+                      onClick={handleSignOut}
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sign Out
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="outline" size="sm" className="w-full" asChild>
+                      <Link to="/auth" onClick={() => setIsMenuOpen(false)}>Login</Link>
+                    </Button>
+                    <Button variant="default" size="sm" className="w-full" asChild>
+                      <Link to="/auth" onClick={() => setIsMenuOpen(false)}>Sign Up</Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>

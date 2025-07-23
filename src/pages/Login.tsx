@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { Home, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -16,6 +17,17 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { signIn, user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  const from = location.state?.from?.pathname || '/';
+
+  useEffect(() => {
+    if (user) {
+      navigate(from, { replace: true });
+    }
+  }, [user, navigate, from]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -28,16 +40,13 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate login process
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Login Successful",
-        description: "Welcome back to Naija Homely Finds!",
-      });
-      // Redirect to dashboard or home
-      window.location.href = '/';
-    }, 1500);
+    const { error } = await signIn(formData.email, formData.password);
+    
+    if (!error) {
+      navigate(from, { replace: true });
+    }
+    
+    setIsLoading(false);
   };
 
   return (

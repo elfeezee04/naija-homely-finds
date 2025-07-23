@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Home, Mail, Lock, User, Phone, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -24,6 +25,14 @@ const Register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { signUp, user } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -52,6 +61,15 @@ const Register = () => {
       return;
     }
 
+    if (formData.password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!formData.agreeToTerms) {
       toast({
         title: "Error",
@@ -63,16 +81,21 @@ const Register = () => {
 
     setIsLoading(true);
 
-    // Simulate registration process
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Registration Successful",
-        description: "Welcome to Naija Homely Finds! Please check your email to verify your account.",
+    const { error } = await signUp(formData.email, formData.password, formData.fullName);
+    
+    if (!error) {
+      setFormData({
+        fullName: '',
+        email: '',
+        phone: '',
+        password: '',
+        confirmPassword: '',
+        userType: '',
+        agreeToTerms: false,
       });
-      // Redirect to login or dashboard
-      window.location.href = '/login';
-    }, 1500);
+    }
+    
+    setIsLoading(false);
   };
 
   return (
@@ -259,7 +282,7 @@ const Register = () => {
 
             <div className="text-center text-sm">
               <span className="text-muted-foreground">Already have an account? </span>
-              <Link to="/login" className="text-primary hover:underline font-medium">
+              <Link to="/auth" className="text-primary hover:underline font-medium">
                 Sign in here
               </Link>
             </div>
