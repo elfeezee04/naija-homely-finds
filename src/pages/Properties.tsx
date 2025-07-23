@@ -9,9 +9,11 @@ const Properties = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState('newest');
   const [showFilters, setShowFilters] = useState(false);
+  const [filteredProperties, setFilteredProperties] = useState([]);
+  const [activeFilters, setActiveFilters] = useState<any>(null);
   
   // Sample properties data
-  const [properties] = useState([
+  const [allProperties] = useState([
     {
       id: '1',
       title: 'Luxury 3 Bedroom Apartment in Victoria Island',
@@ -94,9 +96,76 @@ const Properties = () => {
     },
   ]);
 
+  // Initialize filtered properties
+  useEffect(() => {
+    setFilteredProperties(allProperties);
+  }, []);
+
+  // Apply sorting
+  useEffect(() => {
+    let sorted = [...(activeFilters ? filteredProperties : allProperties)];
+    
+    switch (sortBy) {
+      case 'price-low':
+        sorted.sort((a, b) => a.price - b.price);
+        break;
+      case 'price-high':
+        sorted.sort((a, b) => b.price - a.price);
+        break;
+      case 'bedrooms':
+        sorted.sort((a, b) => b.bedrooms - a.bedrooms);
+        break;
+      case 'oldest':
+        sorted.reverse();
+        break;
+      default: // newest
+        break;
+    }
+    
+    setFilteredProperties(sorted);
+  }, [sortBy, activeFilters, allProperties]);
+
   const handleSearch = (filters: any) => {
-    // Handle search filtering logic here
-    console.log('Search filters:', filters);
+    setActiveFilters(filters);
+    
+    let filtered = allProperties.filter(property => {
+      // Location filter
+      if (filters.location && !property.location.toLowerCase().includes(filters.location)) {
+        return false;
+      }
+      
+      // Property type filter
+      if (filters.propertyType && property.propertyType.toLowerCase() !== filters.propertyType) {
+        return false;
+      }
+      
+      // Listing type filter (rent/sale)
+      if (filters.listingType && property.type !== filters.listingType) {
+        return false;
+      }
+      
+      // Price filters
+      if (filters.minPrice && property.price < parseInt(filters.minPrice)) {
+        return false;
+      }
+      if (filters.maxPrice && property.price > parseInt(filters.maxPrice)) {
+        return false;
+      }
+      
+      // Bedrooms filter
+      if (filters.bedrooms && property.bedrooms < parseInt(filters.bedrooms)) {
+        return false;
+      }
+      
+      // Bathrooms filter
+      if (filters.bathrooms && property.bathrooms < parseInt(filters.bathrooms)) {
+        return false;
+      }
+      
+      return true;
+    });
+    
+    setFilteredProperties(filtered);
   };
 
   const sortOptions = [
@@ -116,7 +185,12 @@ const Properties = () => {
             <div>
               <h1 className="text-2xl font-bold text-foreground">Properties</h1>
               <p className="text-muted-foreground">
-                Showing {properties.length} properties
+                Showing {filteredProperties.length} of {allProperties.length} properties
+                {activeFilters && (
+                  <span className="ml-2 text-primary">
+                    (filtered)
+                  </span>
+                )}
               </p>
             </div>
             
@@ -205,7 +279,7 @@ const Properties = () => {
                 ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6' 
                 : 'space-y-6'
             }>
-              {properties.map((property) => (
+              {filteredProperties.map((property) => (
                 <PropertyCard key={property.id} property={property} />
               ))}
             </div>
