@@ -70,11 +70,7 @@ const App = () => (
               <Route path="/admin/login" element={<AdminLogin />} />
               
               {/* Admin routes */}
-              <Route path="/admin" element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminDashboard />
-                </ProtectedRoute>
-              } />
+              <Route path="/admin" element={<AdminDashboard />} />
               
               {/* Catch-all route */}
               <Route path="*" element={<NotFound />} />
