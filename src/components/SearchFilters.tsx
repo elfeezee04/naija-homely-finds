@@ -53,7 +53,7 @@ const SearchFilters = ({ onSearch }: SearchFiltersProps) => {
   };
 
   const clearFilters = () => {
-    setFilters({
+    const clearedFilters = {
       location: '',
       propertyType: '',
       listingType: '',
@@ -61,7 +61,9 @@ const SearchFilters = ({ onSearch }: SearchFiltersProps) => {
       maxPrice: '',
       bedrooms: '',
       bathrooms: '',
-    });
+    };
+    setFilters(clearedFilters);
+    onSearch(clearedFilters);
   };
 
   const getActiveFiltersCount = () => {
@@ -223,8 +225,7 @@ const SearchFilters = ({ onSearch }: SearchFiltersProps) => {
         <div className="flex gap-3 pt-4">
           <Button 
             onClick={handleSearch} 
-            className="flex-1"
-            variant="hero"
+            className="flex-1 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
           >
             <Search className="h-4 w-4 mr-2" />
             Search Properties

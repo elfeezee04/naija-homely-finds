@@ -130,17 +130,17 @@ const Properties = () => {
     
     let filtered = allProperties.filter(property => {
       // Location filter
-      if (filters.location && !property.location.toLowerCase().includes(filters.location)) {
+      if (filters.location && !property.location.toLowerCase().includes(filters.location.toLowerCase())) {
         return false;
       }
       
       // Property type filter
-      if (filters.propertyType && property.propertyType.toLowerCase() !== filters.propertyType) {
+      if (filters.propertyType && property.propertyType.toLowerCase() !== filters.propertyType.toLowerCase()) {
         return false;
       }
       
       // Listing type filter (rent/sale)
-      if (filters.listingType && property.type !== filters.listingType) {
+      if (filters.listingType && property.type.toLowerCase() !== filters.listingType.toLowerCase()) {
         return false;
       }
       
