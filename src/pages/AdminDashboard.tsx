@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   Users, 
   Home as HomeIcon, 
@@ -15,78 +18,168 @@ import {
   X,
   MoreVertical,
   Filter,
-  Download
+  Download,
+  LogOut
 } from 'lucide-react';
 import PropertyCard from '@/components/PropertyCard';
 
 const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTab, setSelectedTab] = useState('overview');
+  const [properties, setProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
-  // Sample data
+  // Check admin auth
+  useEffect(() => {
+    const isAdminLoggedIn = localStorage.getItem('adminLoggedIn');
+    if (!isAdminLoggedIn) {
+      navigate('/admin/login');
+    }
+  }, [navigate]);
+
+  // Fetch properties from database
+  useEffect(() => {
+    fetchProperties();
+  }, []);
+
+  const fetchProperties = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('properties')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setProperties(data || []);
+    } catch (error) {
+      console.error('Error fetching properties:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch properties",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('adminLoggedIn');
+    navigate('/admin/login');
+  };
+
+  // Calculate stats from real data
   const stats = [
     {
       title: 'Total Properties',
-      value: '2,543',
+      value: properties.length.toString(),
       change: '+12%',
       icon: HomeIcon,
       color: 'text-blue-600',
     },
     {
-      title: 'Active Users',
-      value: '1,234',
+      title: 'Active Properties',
+      value: properties.filter(p => p.status === 'active').length.toString(),
       change: '+8%',
       icon: Users,
       color: 'text-green-600',
     },
     {
-      title: 'Total Revenue',
-      value: '₦45.2M',
+      title: 'Total Value',
+      value: `₦${(properties.reduce((sum, p) => sum + (p.price || 0), 0) / 1000000).toFixed(1)}M`,
       change: '+15%',
       icon: DollarSign,
       color: 'text-yellow-600',
     },
     {
-      title: 'Monthly Growth',
-      value: '23%',
+      title: 'Pending Review',
+      value: properties.filter(p => p.status === 'pending' || !p.status).length.toString(),
       change: '+5%',
       icon: TrendingUp,
       color: 'text-purple-600',
     },
   ];
 
-  const pendingProperties = [
-    {
-      id: '1',
-      title: 'Luxury 3 Bedroom Apartment in Victoria Island',
-      price: 2500000,
-      location: 'Victoria Island, Lagos',
-      bedrooms: 3,
-      bathrooms: 2,
-      area: 120,
-      type: 'rent' as const,
-      propertyType: 'Apartment',
-      images: ['/placeholder.svg'],
-      agent: { name: 'Adewale Johnson', phone: '+234 801 234 5678' },
-      status: 'pending',
-      submittedAt: '2024-01-20',
-    },
-    {
-      id: '2',
-      title: 'Modern 4 Bedroom Duplex in Lekki',
-      price: 85000000,
-      location: 'Lekki Phase 1, Lagos',
-      bedrooms: 4,
-      bathrooms: 3,
-      area: 200,
-      type: 'sale' as const,
-      propertyType: 'Duplex',
-      images: ['/placeholder.svg'],
-      agent: { name: 'Funmi Okafor', phone: '+234 802 345 6789' },
-      status: 'pending',
-      submittedAt: '2024-01-19',
-    },
-  ];
+  const pendingProperties = properties.filter(p => p.status === 'pending' || !p.status);
+
+  const handleApproveProperty = async (propertyId: string) => {
+    try {
+      const { error } = await supabase
+        .from('properties')
+        .update({ status: 'active' })
+        .eq('id', propertyId);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Property approved successfully",
+      });
+      
+      fetchProperties();
+    } catch (error) {
+      console.error('Error approving property:', error);
+      toast({
+        title: "Error",
+        description: "Failed to approve property",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRejectProperty = async (propertyId: string) => {
+    try {
+      const { error } = await supabase
+        .from('properties')
+        .update({ status: 'rejected' })
+        .eq('id', propertyId);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Property rejected",
+      });
+      
+      fetchProperties();
+    } catch (error) {
+      console.error('Error rejecting property:', error);
+      toast({
+        title: "Error",
+        description: "Failed to reject property",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteProperty = async (propertyId: string) => {
+    if (!confirm('Are you sure you want to delete this property?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('properties')
+        .delete()
+        .eq('id', propertyId);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Property deleted successfully",
+      });
+      
+      fetchProperties();
+    } catch (error) {
+      console.error('Error deleting property:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete property",
+        variant: "destructive",
+      });
+    }
+  };
 
   const users = [
     {
@@ -118,16 +211,6 @@ const AdminDashboard = () => {
     },
   ];
 
-  const handleApproveProperty = (propertyId: string) => {
-    console.log('Approving property:', propertyId);
-    // Handle approval logic
-  };
-
-  const handleRejectProperty = (propertyId: string) => {
-    console.log('Rejecting property:', propertyId);
-    // Handle rejection logic
-  };
-
   const handleUserAction = (userId: string, action: string) => {
     console.log(`${action} user:`, userId);
     // Handle user action logic
@@ -136,11 +219,17 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-secondary/20">
       <div className="max-w-7xl mx-auto p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
-          <p className="text-muted-foreground">
-            Manage properties, users, and platform analytics
-          </p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
+            <p className="text-muted-foreground">
+              Manage properties, users, and platform analytics
+            </p>
+          </div>
+          <Button variant="outline" onClick={handleLogout}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
         </div>
 
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
@@ -185,32 +274,40 @@ const AdminDashboard = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {pendingProperties.slice(0, 3).map((property) => (
-                    <div key={property.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-sm">{property.title}</h4>
-                        <p className="text-xs text-muted-foreground">
-                          by {property.agent.name} • {property.submittedAt}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="default"
-                          onClick={() => handleApproveProperty(property.id)}
-                        >
-                          <Check className="h-3 w-3" />
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="destructive"
-                          onClick={() => handleRejectProperty(property.id)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
+                  {loading ? (
+                    <div className="text-center py-4">Loading properties...</div>
+                  ) : pendingProperties.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      No pending properties
                     </div>
-                  ))}
+                  ) : (
+                    pendingProperties.slice(0, 3).map((property) => (
+                      <div key={property.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-sm">{property.title}</h4>
+                          <p className="text-xs text-muted-foreground">
+                            {property.location} • ₦{property.price?.toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="default"
+                            onClick={() => handleApproveProperty(property.id)}
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="destructive"
+                            onClick={() => handleRejectProperty(property.id)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </CardContent>
               </Card>
 
@@ -264,22 +361,52 @@ const AdminDashboard = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {pendingProperties.map((property) => (
-                <div key={property.id} className="relative">
-                  <PropertyCard property={property} />
-                  <div className="absolute top-2 right-2 flex gap-2">
-                    <Button size="sm" variant="default" onClick={() => handleApproveProperty(property.id)}>
-                      <Check className="h-3 w-3" />
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={() => handleRejectProperty(property.id)}>
-                      <X className="h-3 w-3" />
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      <Eye className="h-3 w-3" />
-                    </Button>
-                  </div>
+              {loading ? (
+                <div className="col-span-full text-center py-8">Loading properties...</div>
+              ) : properties.length === 0 ? (
+                <div className="col-span-full text-center py-8 text-muted-foreground">
+                  No properties found
                 </div>
-              ))}
+              ) : (
+                properties
+                  .filter(property => 
+                    searchTerm === '' || 
+                    property.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    property.location?.toLowerCase().includes(searchTerm.toLowerCase())
+                  )
+                  .map((property) => (
+                    <div key={property.id} className="relative">
+                      <PropertyCard property={{
+                        ...property,
+                        images: property.images || ['/placeholder.svg'],
+                        agent: { name: 'Property Owner', phone: '+234 000 000 0000' }
+                      }} />
+                      <div className="absolute top-2 right-2 flex gap-2">
+                        {property.status !== 'active' && (
+                          <Button size="sm" variant="default" onClick={() => handleApproveProperty(property.id)}>
+                            <Check className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {property.status !== 'rejected' && (
+                          <Button size="sm" variant="destructive" onClick={() => handleRejectProperty(property.id)}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" onClick={() => handleDeleteProperty(property.id)}>
+                          Delete
+                        </Button>
+                      </div>
+                      <div className="absolute top-2 left-2">
+                        <Badge variant={
+                          property.status === 'active' ? 'default' :
+                          property.status === 'rejected' ? 'destructive' : 'secondary'
+                        }>
+                          {property.status || 'pending'}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))
+              )}
             </div>
           </TabsContent>
 
@@ -371,19 +498,23 @@ const AdminDashboard = () => {
                   <div className="space-y-4">
                     <div className="flex justify-between">
                       <span className="text-sm">Total Properties</span>
-                      <span className="font-medium">2,543</span>
+                      <span className="font-medium">{properties.length}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Active Listings</span>
-                      <span className="font-medium">2,234</span>
+                      <span className="font-medium">{properties.filter(p => p.status === 'active').length}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Pending Approval</span>
-                      <span className="font-medium">45</span>
+                      <span className="font-medium">{properties.filter(p => p.status === 'pending' || !p.status).length}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-sm">Average Views/Property</span>
-                      <span className="font-medium">156</span>
+                      <span className="text-sm">For Rent</span>
+                      <span className="font-medium">{properties.filter(p => p.listing_type === 'rent').length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm">For Sale</span>
+                      <span className="font-medium">{properties.filter(p => p.listing_type === 'sale').length}</span>
                     </div>
                   </div>
                 </CardContent>

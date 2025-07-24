@@ -8,29 +8,27 @@ import { Shield, Home } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const AdminLogin = () => {
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState({ username: '', password: '' });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   
-  const { signIn, user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
   const from = location.state?.from?.pathname || '/admin';
 
-  useEffect(() => {
-    if (user && isAdmin) {
-      navigate(from, { replace: true });
-    }
-  }, [user, isAdmin, navigate, from]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     
-    const { error } = await signIn(formData.email, formData.password);
-    
-    if (!error) {
-      // Will redirect via useEffect once role is loaded
+    // Simple hardcoded admin credentials
+    if (formData.username === 'admin' && formData.password === 'password') {
+      // Set admin session in localStorage for now
+      localStorage.setItem('adminLoggedIn', 'true');
+      navigate(from, { replace: true });
+    } else {
+      setError('Invalid admin credentials');
     }
     
     setLoading(false);
@@ -50,14 +48,19 @@ const AdminLogin = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded">
+                {error}
+              </div>
+            )}
             <div className="space-y-2">
-              <Label htmlFor="admin-email">Admin Email</Label>
+              <Label htmlFor="admin-username">Username</Label>
               <Input
-                id="admin-email"
-                type="email"
-                placeholder="admin@naijahomelyfinds.com"
-                value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                id="admin-username"
+                type="text"
+                placeholder="admin"
+                value={formData.username}
+                onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
                 required
                 disabled={loading}
               />
@@ -67,7 +70,7 @@ const AdminLogin = () => {
               <Input
                 id="admin-password"
                 type="password"
-                placeholder="Enter admin password"
+                placeholder="password"
                 value={formData.password}
                 onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                 required
