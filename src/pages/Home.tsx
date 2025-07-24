@@ -94,8 +94,12 @@ const Home = () => {
 
   const handleSearch = (filters: any) => {
     setSearchFilters(filters);
-    // Navigate to properties page with filters
-    window.location.href = '/properties';
+    // Navigate to properties page with filters as URL params
+    const searchParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) searchParams.append(key, value as string);
+    });
+    window.location.href = `/properties?${searchParams.toString()}`;
   };
 
   return (

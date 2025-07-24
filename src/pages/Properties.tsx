@@ -24,7 +24,10 @@ const Properties = () => {
       area: 120,
       type: 'rent' as const,
       propertyType: 'Apartment',
-      images: ['/placeholder.svg'],
+      images: [
+        'https://images.unsplash.com/photo-1721322800607-8c38375eef04?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1488972685288-c3fd157d7c7a?auto=format&fit=crop&w=800&q=80'
+      ],
       agent: { name: 'Adewale Johnson', phone: '+234 801 234 5678' },
       featured: true,
     },
@@ -38,7 +41,10 @@ const Properties = () => {
       area: 200,
       type: 'sale' as const,
       propertyType: 'Duplex',
-      images: ['/placeholder.svg'],
+      images: [
+        'https://images.unsplash.com/photo-1487958449943-2429e8be8625?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1496307653780-42ee777d4833?auto=format&fit=crop&w=800&q=80'
+      ],
       agent: { name: 'Funmi Okafor', phone: '+234 802 345 6789' },
       featured: true,
     },
@@ -52,7 +58,10 @@ const Properties = () => {
       area: 90,
       type: 'rent' as const,
       propertyType: 'Apartment',
-      images: ['/placeholder.svg'],
+      images: [
+        'https://images.unsplash.com/photo-1473177104440-ffee2f376098?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1551038247-3d9af20df552?auto=format&fit=crop&w=800&q=80'
+      ],
       agent: { name: 'Emeka Chukwu', phone: '+234 803 456 7890' },
     },
     {
@@ -65,7 +74,10 @@ const Properties = () => {
       area: 350,
       type: 'sale' as const,
       propertyType: 'House',
-      images: ['/placeholder.svg'],
+      images: [
+        'https://images.unsplash.com/photo-1433832597046-4f10e10ac764?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1493397212122-2b85dda8106b?auto=format&fit=crop&w=800&q=80'
+      ],
       agent: { name: 'Aisha Abdullahi', phone: '+234 804 567 8901' },
     },
     {
@@ -78,7 +90,10 @@ const Properties = () => {
       area: 45,
       type: 'rent' as const,
       propertyType: 'Apartment',
-      images: ['/placeholder.svg'],
+      images: [
+        'https://images.unsplash.com/photo-1466442929976-97f336a657be?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1492321936769-b49830bc1d1e?auto=format&fit=crop&w=800&q=80'
+      ],
       agent: { name: 'Kemi Adebayo', phone: '+234 805 678 9012' },
     },
     {
@@ -91,15 +106,66 @@ const Properties = () => {
       area: 200,
       type: 'rent' as const,
       propertyType: 'Office Space',
-      images: ['/placeholder.svg'],
+      images: [
+        'https://images.unsplash.com/photo-1488972685288-c3fd157d7c7a?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1487958449943-2429e8be8625?auto=format&fit=crop&w=800&q=80'
+      ],
       agent: { name: 'Tunde Oladele', phone: '+234 806 789 0123' },
+    },
+    {
+      id: '7',
+      title: 'Cozy 2 Bedroom Bungalow in Kaduna',
+      price: 45000000,
+      location: 'GRA, Kaduna',
+      bedrooms: 2,
+      bathrooms: 2,
+      area: 100,
+      type: 'sale' as const,
+      propertyType: 'Bungalow',
+      images: [
+        'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1501854140801-50d01698950b?auto=format&fit=crop&w=800&q=80'
+      ],
+      agent: { name: 'Ibrahim Musa', phone: '+234 807 890 1234' },
+    },
+    {
+      id: '8',
+      title: 'Modern 3 Bedroom House in Port Harcourt',
+      price: 2200000,
+      location: 'GRA Phase 2, Port Harcourt',
+      bedrooms: 3,
+      bathrooms: 3,
+      area: 150,
+      type: 'rent' as const,
+      propertyType: 'House',
+      images: [
+        'https://images.unsplash.com/photo-1517022812141-23620dba5c23?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=800&q=80'
+      ],
+      agent: { name: 'Grace Eze', phone: '+234 808 901 2345' },
     },
   ]);
 
-  // Initialize filtered properties
+  // Initialize filtered properties and handle URL params
   useEffect(() => {
-    setFilteredProperties(allProperties);
-  }, []);
+    const urlParams = new URLSearchParams(window.location.search);
+    const filters = {
+      location: urlParams.get('location') || '',
+      propertyType: urlParams.get('propertyType') || '',
+      listingType: urlParams.get('listingType') || '',
+      minPrice: urlParams.get('minPrice') || '',
+      maxPrice: urlParams.get('maxPrice') || '',
+      bedrooms: urlParams.get('bedrooms') || '',
+      bathrooms: urlParams.get('bathrooms') || '',
+    };
+    
+    // If there are URL params, apply filters
+    if (Object.values(filters).some(value => value !== '')) {
+      handleSearch(filters);
+    } else {
+      setFilteredProperties(allProperties);
+    }
+  }, [allProperties]);
 
   // Apply sorting
   useEffect(() => {
