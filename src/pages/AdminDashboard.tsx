@@ -5,6 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -19,15 +23,24 @@ import {
   MoreVertical,
   Filter,
   Download,
-  LogOut
+  LogOut,
+  Plus,
+  UserPlus
 } from 'lucide-react';
 import PropertyCard from '@/components/PropertyCard';
+import PropertyForm from '@/components/PropertyForm';
+import AgentForm from '@/components/AgentForm';
 
 const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTab, setSelectedTab] = useState('overview');
   const [properties, setProperties] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [isAddPropertyOpen, setIsAddPropertyOpen] = useState(false);
+  const [isAddAgentOpen, setIsAddAgentOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -39,9 +52,10 @@ const AdminDashboard = () => {
     }
   }, [navigate]);
 
-  // Fetch properties from database
+  // Fetch properties and users from database
   useEffect(() => {
     fetchProperties();
+    fetchUsers();
   }, []);
 
   const fetchProperties = async () => {
@@ -62,6 +76,27 @@ const AdminDashboard = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch users",
+        variant: "destructive",
+      });
+    } finally {
+      setUsersLoading(false);
     }
   };
 
@@ -181,39 +216,125 @@ const AdminDashboard = () => {
     }
   };
 
-  const users = [
-    {
-      id: '1',
-      name: 'Adewale Johnson',
-      email: 'adewale@example.com',
-      role: 'Agent',
-      status: 'Active',
-      joinDate: '2024-01-15',
-      properties: 12,
-    },
-    {
-      id: '2',
-      name: 'Funmi Okafor',
-      email: 'funmi@example.com',
-      role: 'Agent',
-      status: 'Active',
-      joinDate: '2024-01-10',
-      properties: 8,
-    },
-    {
-      id: '3',
-      name: 'Emeka Chukwu',
-      email: 'emeka@example.com',
-      role: 'Landlord',
-      status: 'Pending',
-      joinDate: '2024-01-20',
-      properties: 3,
-    },
-  ];
+  const handleAddProperty = async (propertyData: any) => {
+    try {
+      const { error } = await supabase
+        .from('properties')
+        .insert([{
+          ...propertyData,
+          status: 'active',
+          user_id: '00000000-0000-0000-0000-000000000000' // Admin created property
+        }]);
 
-  const handleUserAction = (userId: string, action: string) => {
-    console.log(`${action} user:`, userId);
-    // Handle user action logic
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Property added successfully",
+      });
+      
+      setIsAddPropertyOpen(false);
+      fetchProperties();
+    } catch (error) {
+      console.error('Error adding property:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add property",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddAgent = async (agentData: any) => {
+    try {
+      // First create auth user
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: agentData.email,
+        password: agentData.password,
+        email_confirm: true
+      });
+
+      if (authError) throw authError;
+
+      // Then create profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([{
+          user_id: authData.user.id,
+          full_name: agentData.full_name,
+          phone: agentData.phone,
+          role: 'agent'
+        }]);
+
+      if (profileError) throw profileError;
+      
+      toast({
+        title: "Success",
+        description: "Agent added successfully",
+      });
+      
+      setIsAddAgentOpen(false);
+      fetchUsers();
+    } catch (error) {
+      console.error('Error adding agent:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add agent. " + error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUserAction = async (userId: string, action: string) => {
+    if (action === 'approve') {
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ role: 'agent' })
+          .eq('id', userId);
+
+        if (error) throw error;
+        
+        toast({
+          title: "Success",
+          description: "User approved as agent",
+        });
+        
+        fetchUsers();
+      } catch (error) {
+        console.error('Error approving user:', error);
+        toast({
+          title: "Error",
+          description: "Failed to approve user",
+          variant: "destructive",
+        });
+      }
+    } else if (action === 'delete') {
+      if (!confirm('Are you sure you want to delete this user?')) return;
+      
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .delete()
+          .eq('id', userId);
+
+        if (error) throw error;
+        
+        toast({
+          title: "Success",
+          description: "User deleted successfully",
+        });
+        
+        fetchUsers();
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete user",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   return (
@@ -322,13 +443,13 @@ const AdminDashboard = () => {
                   {users.slice(0, 3).map((user) => (
                     <div key={user.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex-1">
-                        <h4 className="font-medium text-sm">{user.name}</h4>
+                        <h4 className="font-medium text-sm">{user.full_name || 'No name'}</h4>
                         <p className="text-xs text-muted-foreground">
-                          {user.role} • Joined {user.joinDate}
+                          {user.role} • Joined {new Date(user.created_at).toLocaleDateString()}
                         </p>
                       </div>
-                      <Badge variant={user.status === 'Active' ? 'default' : 'secondary'}>
-                        {user.status}
+                      <Badge variant="secondary">
+                        {user.role}
                       </Badge>
                     </div>
                   ))}
@@ -349,15 +470,36 @@ const AdminDashboard = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="sold">Sold</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2">
+                <Dialog open={isAddPropertyOpen} onOpenChange={setIsAddPropertyOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Property
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <PropertyForm onSubmit={handleAddProperty} />
+                  </DialogContent>
+                </Dialog>
                 <Button variant="outline" size="sm">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filter
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
                 </Button>
               </div>
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -369,11 +511,17 @@ const AdminDashboard = () => {
                 </div>
               ) : (
                 properties
-                  .filter(property => 
-                    searchTerm === '' || 
-                    property.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    property.location?.toLowerCase().includes(searchTerm.toLowerCase())
-                  )
+                  .filter(property => {
+                    const matchesSearch = searchTerm === '' || 
+                      property.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      property.location?.toLowerCase().includes(searchTerm.toLowerCase());
+                    
+                    const matchesStatus = statusFilter === 'all' || 
+                      (statusFilter === 'pending' && (!property.status || property.status === 'pending')) ||
+                      property.status === statusFilter;
+                    
+                    return matchesSearch && matchesStatus;
+                  })
                   .map((property) => (
                     <div key={property.id} className="relative">
                       <PropertyCard property={{
@@ -421,10 +569,23 @@ const AdminDashboard = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Export Users
-              </Button>
+              <div className="flex gap-2">
+                <Dialog open={isAddAgentOpen} onOpenChange={setIsAddAgentOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Add Agent
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <AgentForm onSubmit={handleAddAgent} />
+                  </DialogContent>
+                </Dialog>
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export Users
+                </Button>
+              </div>
             </div>
 
             <Card>
@@ -436,50 +597,56 @@ const AdminDashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {users.map((user) => (
-                    <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-4">
-                          <div>
-                            <h4 className="font-medium">{user.name}</h4>
-                            <p className="text-sm text-muted-foreground">{user.email}</p>
-                          </div>
-                          <Badge variant="secondary">{user.role}</Badge>
-                          <Badge variant={user.status === 'Active' ? 'default' : 'secondary'}>
-                            {user.status}
-                          </Badge>
-                        </div>
-                        <div className="text-sm text-muted-foreground mt-2">
-                          Joined: {user.joinDate} • Properties: {user.properties}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        {user.status === 'Pending' && (
-                          <Button 
-                            size="sm" 
-                            variant="default"
-                            onClick={() => handleUserAction(user.id, 'approve')}
-                          >
-                            Approve
-                          </Button>
-                        )}
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => handleUserAction(user.id, 'view')}
-                        >
-                          <Eye className="h-3 w-3" />
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="ghost"
-                          onClick={() => handleUserAction(user.id, 'more')}
-                        >
-                          <MoreVertical className="h-3 w-3" />
-                        </Button>
-                      </div>
+                  {usersLoading ? (
+                    <div className="text-center py-4">Loading users...</div>
+                  ) : users.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      No users found
                     </div>
-                  ))}
+                  ) : (
+                     users.map((user) => (
+                     <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                       <div className="flex-1">
+                         <div className="flex items-center gap-4">
+                           <div>
+                             <h4 className="font-medium">{user.full_name || 'No name'}</h4>
+                             <p className="text-sm text-muted-foreground">{user.user_id}</p>
+                           </div>
+                           <Badge variant="secondary">{user.role}</Badge>
+                         </div>
+                         <div className="text-sm text-muted-foreground mt-2">
+                           Joined: {new Date(user.created_at).toLocaleDateString()}
+                           {user.phone && ` • Phone: ${user.phone}`}
+                         </div>
+                       </div>
+                       <div className="flex gap-2">
+                         {user.role === 'user' && (
+                           <Button 
+                             size="sm" 
+                             variant="default"
+                             onClick={() => handleUserAction(user.id, 'approve')}
+                           >
+                             Make Agent
+                           </Button>
+                         )}
+                         <Button 
+                           size="sm" 
+                           variant="outline"
+                           onClick={() => handleUserAction(user.id, 'view')}
+                         >
+                           <Eye className="h-3 w-3" />
+                         </Button>
+                         <Button 
+                           size="sm" 
+                           variant="destructive"
+                           onClick={() => handleUserAction(user.id, 'delete')}
+                         >
+                           Delete
+                         </Button>
+                       </div>
+                     </div>
+                     ))
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -516,6 +683,10 @@ const AdminDashboard = () => {
                       <span className="text-sm">For Sale</span>
                       <span className="font-medium">{properties.filter(p => p.listing_type === 'sale').length}</span>
                     </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm">Sold Properties</span>
+                      <span className="font-medium">{properties.filter(p => p.status === 'sold').length}</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -531,19 +702,19 @@ const AdminDashboard = () => {
                   <div className="space-y-4">
                     <div className="flex justify-between">
                       <span className="text-sm">Total Users</span>
-                      <span className="font-medium">1,234</span>
+                      <span className="font-medium">{users.length}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Active Agents</span>
-                      <span className="font-medium">456</span>
+                      <span className="font-medium">{users.filter(u => u.role === 'agent').length}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-sm">Property Seekers</span>
-                      <span className="font-medium">678</span>
+                      <span className="text-sm">Regular Users</span>
+                      <span className="font-medium">{users.filter(u => u.role === 'user').length}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-sm">New This Month</span>
-                      <span className="font-medium">89</span>
+                      <span className="text-sm">Admins</span>
+                      <span className="font-medium">{users.filter(u => u.role === 'admin').length}</span>
                     </div>
                   </div>
                 </CardContent>
