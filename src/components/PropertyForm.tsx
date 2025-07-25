@@ -5,12 +5,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Upload, X } from 'lucide-react';
 
 interface PropertyFormProps {
   onSubmit: (data: any) => void;
 }
 
 const PropertyForm = ({ onSubmit }: PropertyFormProps) => {
+  const { toast } = useToast();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -24,24 +28,80 @@ const PropertyForm = ({ onSubmit }: PropertyFormProps) => {
     area_sqm: '',
     features: ''
   });
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setUploading(true);
     
-    const submitData = {
-      ...formData,
-      price: parseFloat(formData.price) || 0,
-      bedrooms: parseInt(formData.bedrooms) || null,
-      bathrooms: parseInt(formData.bathrooms) || null,
-      area_sqm: parseInt(formData.area_sqm) || null,
-      features: formData.features ? formData.features.split(',').map(f => f.trim()) : []
-    };
-    
-    onSubmit(submitData);
+    try {
+      // Upload images first
+      const imageUrls = await uploadImages();
+      
+      const submitData = {
+        ...formData,
+        price: parseFloat(formData.price) || 0,
+        bedrooms: parseInt(formData.bedrooms) || null,
+        bathrooms: parseInt(formData.bathrooms) || null,
+        area_sqm: parseInt(formData.area_sqm) || null,
+        features: formData.features ? formData.features.split(',').map(f => f.trim()) : [],
+        images: imageUrls
+      };
+      
+      onSubmit(submitData);
+    } catch (error) {
+      console.error('Error submitting property:', error);
+      toast({
+        title: "Error",
+        description: "Failed to upload images",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const uploadImages = async (): Promise<string[]> => {
+    if (selectedFiles.length === 0) return [];
+
+    const uploadPromises = selectedFiles.map(async (file, index) => {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${index}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('property-images')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage
+        .from('property-images')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    });
+
+    return Promise.all(uploadPromises);
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      const newFiles = Array.from(files).slice(0, 5 - selectedFiles.length); // Max 5 images
+      setSelectedFiles(prev => [...prev, ...newFiles]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -189,8 +249,60 @@ const PropertyForm = ({ onSubmit }: PropertyFormProps) => {
           />
         </div>
 
+        <div className="space-y-2">
+          <Label htmlFor="images">Property Images (Max 5)</Label>
+          <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6">
+            <div className="text-center">
+              <Upload className="mx-auto h-12 w-12 text-muted-foreground/50" />
+              <div className="mt-4">
+                <label htmlFor="images" className="cursor-pointer">
+                  <span className="mt-2 block text-sm font-medium text-foreground">
+                    Upload property images
+                  </span>
+                  <input
+                    id="images"
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                </label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  PNG, JPG, WEBP up to 10MB each
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          {selectedFiles.length > 0 && (
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              {selectedFiles.map((file, index) => (
+                <div key={index} className="relative border rounded-lg p-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm truncate">{file.name}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <DialogFooter>
-          <Button type="submit">Add Property</Button>
+          <Button type="submit" disabled={uploading}>
+            {uploading ? 'Uploading...' : 'Add Property'}
+          </Button>
         </DialogFooter>
       </form>
     </>
